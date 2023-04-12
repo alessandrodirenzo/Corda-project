@@ -1,8 +1,8 @@
-package com.template.flows;
+package com.example.flows;
 
 import co.paralleluniverse.fibers.Suspendable;
-import com.template.contracts.TemplateContract;
-import com.template.states.TemplateState;
+import com.example.contracts.TemplateContract;
+import com.example.states.TemplateState;
 import net.corda.core.flows.*;
 import net.corda.core.identity.CordaX500Name;
 import net.corda.core.identity.Party;

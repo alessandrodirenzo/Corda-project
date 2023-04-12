@@ -1,6 +1,6 @@
-package com.template.contracts;
+package com.example.contracts;
 
-import com.template.states.TemplateState;
+import com.example.states.TemplateState;
 import org.junit.Test;
 
 public class StateTests {

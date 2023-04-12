@@ -1,6 +1,6 @@
-package com.template.contracts;
+package com.example.contracts;
 
-import com.template.states.TemplateState;
+import com.example.states.TemplateState;
 import net.corda.core.contracts.CommandData;
 import net.corda.core.contracts.Contract;
 import net.corda.core.transactions.LedgerTransaction;
