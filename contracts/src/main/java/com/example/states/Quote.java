@@ -16,7 +16,9 @@ import java.util.List;
 @BelongsToContract(QuoteContract.class)
 public class Quote implements ContractState {
 
+
     //private variables
+    private String message;
     private int quote;
     private Party sender;
     private List<Party> receiver;
@@ -29,7 +31,8 @@ public class Quote implements ContractState {
 
     /* Constructor of your Corda state */
 
-    public Quote(int quote, Party sender, List<Party> receiver, boolean second_category, boolean first_category, boolean accepted, boolean rejected) {
+    public Quote(int quote, String message, Party sender, List<Party> receiver, boolean second_category, boolean first_category, boolean accepted, boolean rejected) {
+        this.message=message;
         this.quote = quote;
         this.sender = sender;
         this.receiver = receiver;
@@ -40,6 +43,9 @@ public class Quote implements ContractState {
     }
 
     //getters
+
+    public String getMessage() { return message; }
+
     public int getQuote(){
         return quote;
     }

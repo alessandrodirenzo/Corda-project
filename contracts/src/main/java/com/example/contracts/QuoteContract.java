@@ -12,7 +12,7 @@ import static net.corda.core.contracts.ContractsDSL.requireThat;
 // ************
 public class QuoteContract implements Contract {
     // This is used to identify our contract when building a transaction.
-    public static final String ID = "com.template.contracts.TemplateContract";
+    public static final String ID = "com.example.contracts.QuoteContract";
 
     // A transaction is valid if verify() method of the contract of all the transaction's input and output states
     // does not throw an exception.
@@ -24,19 +24,33 @@ public class QuoteContract implements Contract {
         //final CommandWithParties<Commands> command = requireSingleCommand(tx.getCommands(), Commands.class);
         final CommandData commandData = tx.getCommands().get(0).getValue();
 
-        if (commandData instanceof Commands.AskAndRecProposal) {
+        if (commandData instanceof Commands.AskProposal) {
             //Retrieve the output state of the transaction
             Quote output = tx.outputsOfType(Quote.class).get(0);
 
             //Using Corda DSL function requireThat to replicate conditions-checks
             requireThat(require -> {
-                require.using("No inputs should be consumed when asking and receiving the proposal.", tx.getInputStates().isEmpty());
+                require.using("No inputs should be consumed when asking the proposal.", tx.getInputStates().isEmpty());
                 require.using("No decision made", (!output.isAccepted()) && (!output.isRejected()));
                 require.using("No approval of decision", (!output.isFirst_category()) && (!output.isSecond_category()));
-                require.using("Quote with positive value",output.getQuote()>0);
+                require.using("Quote with negative value representing no quote already sent",output.getQuote()==-1);
                 return null;
             });
         }
+        if (commandData instanceof Commands.SendProposal) {
+            //Retrieve the output state of the transaction
+            Quote output = tx.outputsOfType(Quote.class).get(0);
+
+            //Using Corda DSL function requireThat to replicate conditions-checks
+            requireThat(require -> {
+                require.using("Input state present", !tx.getInputStates().isEmpty());
+                require.using("Quote with positive value",output.getQuote()>0);
+                require.using("No decision made", (!output.isAccepted()) && (!output.isRejected()));
+                require.using("No approval of decision", (!output.isFirst_category()) && (!output.isSecond_category()));
+                return null;
+            });
+        }
+
         if (commandData instanceof Commands.RejectionIntention) {
             //Retrieve the output state of the transaction
             Quote input= tx.inputsOfType(Quote.class).get(0);
@@ -74,7 +88,8 @@ public class QuoteContract implements Contract {
 
     // Used to indicate the transaction's intent.
     public interface Commands extends CommandData {
-        class AskAndRecProposal implements Commands {}
+        class AskProposal implements Commands {}
+        class SendProposal implements Commands {}
         class RejectionIntention implements Commands {}
         class RejectionConfirmed implements Commands {}
     }

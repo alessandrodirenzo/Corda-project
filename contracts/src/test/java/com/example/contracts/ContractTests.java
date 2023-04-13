@@ -9,31 +9,32 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
-
-import static net.corda.testing.node.NodeTestUtils.ledger;
+import static net.corda.testing.node.NodeTestUtils.transaction;
 
 
 public class ContractTests {
-    private final MockServices ledgerServices = new MockServices(Arrays.asList("com.example"));
-    TestIdentity compA= new TestIdentity(new CordaX500Name("Company A",  "London",  "UK"));
-    TestIdentity compB = new TestIdentity(new CordaX500Name("Company B",  "Rome",  "IT"));
-    TestIdentity compC = new TestIdentity(new CordaX500Name("Company C",  "Berlin",  "DE"));
+    private MockServices ledgerServices = new MockServices(new TestIdentity(new CordaX500Name("TestId", "", "IN")));;
+    private final TestIdentity compA= new TestIdentity(new CordaX500Name("Company A",  "London",  "UK"));
+    private final TestIdentity compB = new TestIdentity(new CordaX500Name("Company B",  "Rome",  "IT"));
+    private final TestIdentity compC = new TestIdentity(new CordaX500Name("Company C",  "Berlin",  "DE"));
+    private Quote state = new Quote(5, compA.getParty(), Arrays.asList(compB.getParty(), compC.getParty()), false, false, false, false);
+
     @Test
     public void InputandOutputState() {
-        Quote state = new Quote(5, compA.getParty(), Arrays.asList(compB.getParty(), compC.getParty()), false, false, false, false);
-        ledger(ledgerServices, l -> {
-            l.transaction(tx -> {
+        transaction(ledgerServices, tx -> {
                 tx.input(QuoteContract.ID, state);
                 tx.output(QuoteContract.ID, state);
-                tx.command(compA.getPublicKey(), new QuoteContract.Commands.AskAndRecProposal());
-                return tx.fails(); //fails because of having inputs
+                tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey(), compC.getPublicKey()), new QuoteContract.Commands.AskAndRecProposal());
+                tx.fails(); //fails because of having inputs
+                return null;
             });
-            l.transaction(tx -> {
+        transaction(ledgerServices, tx ->  {
                 tx.output(QuoteContract.ID, state);
-                tx.command(compA.getPublicKey(), new QuoteContract.Commands.AskAndRecProposal());
-                return tx.verifies();
+                tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey(), compC.getPublicKey()), new QuoteContract.Commands.AskAndRecProposal());
+                tx.verifies();
+                return null;
             });
-            return null;
-        });
+
+
     }
 }

@@ -1,8 +1,8 @@
 package com.example;
 
 import com.google.common.collect.ImmutableList;
-import com.example.flows.TemplateFlow;
-import com.example.states.TemplateState;
+import com.example.flows.AskQuoteFlow;
+import com.example.states.Quote;
 import net.corda.core.identity.CordaX500Name;
 import net.corda.core.node.services.Vault;
 import net.corda.core.node.services.vault.QueryCriteria;
@@ -22,8 +22,8 @@ public class FlowTests {
     @Before
     public void setup() {
         network = new MockNetwork(new MockNetworkParameters().withCordappsForAllNodes(ImmutableList.of(
-                TestCordapp.findCordapp("com.template.contracts"),
-                TestCordapp.findCordapp("com.template.flows")))
+                TestCordapp.findCordapp("com.example.contracts"),
+                TestCordapp.findCordapp("com.example.flows")))
                 .withNotarySpecs(ImmutableList.of(new MockNetworkNotarySpec(CordaX500Name.parse("O=Notary,L=London,C=GB")))));
         a = network.createPartyNode(null);
         b = network.createPartyNode(null);
@@ -37,6 +37,7 @@ public class FlowTests {
 
     @Test
     public void dummyTest() {
+        //Modify it 
         TemplateFlow.TemplateFlowInitiator flow = new TemplateFlow.TemplateFlowInitiator(b.getInfo().getLegalIdentities().get(0));
         Future<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
