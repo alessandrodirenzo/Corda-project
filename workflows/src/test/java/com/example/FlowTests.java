@@ -37,14 +37,12 @@ public class FlowTests {
 
     @Test
     public void dummyTest() {
-        //Modify it 
-        TemplateFlow.TemplateFlowInitiator flow = new TemplateFlow.TemplateFlowInitiator(b.getInfo().getLegalIdentities().get(0));
+        //Modify it
+        AskQuoteFlow.AskQuoteFlowInitiator flow= new AskQuoteFlow.AskQuoteFlowInitiator(a.getInfo().getLegalIdentities().get(0), b.getInfo().getLegalIdentities().get(0));
         Future<SignedTransaction> future = a.startFlow(flow);
         network.runNetwork();
-
         //successful query means the state is stored at node b's vault. Flow went through.
         QueryCriteria inputCriteria = new QueryCriteria.VaultQueryCriteria().withStatus(Vault.StateStatus.UNCONSUMED);
-        TemplateState state = b.getServices().getVaultService().queryBy(TemplateState.class,inputCriteria)
-                .getStates().get(0).getState().getData();
+        Quote state = b.getServices().getVaultService().queryBy(Quote.class,inputCriteria).getStates().get(0).getState().getData();
     }
 }
