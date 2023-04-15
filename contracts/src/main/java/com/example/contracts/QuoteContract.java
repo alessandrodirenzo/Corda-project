@@ -24,7 +24,7 @@ public class QuoteContract implements Contract {
         //final CommandWithParties<Commands> command = requireSingleCommand(tx.getCommands(), Commands.class);
         final CommandData commandData = tx.getCommands().get(0).getValue();
 
-        if (commandData instanceof Commands.AskProposal) {
+        if (commandData instanceof Commands.AskQuote) {
             //Retrieve the output state of the transaction
             Quote output = tx.outputsOfType(Quote.class).get(0);
 
@@ -37,7 +37,7 @@ public class QuoteContract implements Contract {
                 return null;
             });
         }
-        if (commandData instanceof Commands.SendProposal) {
+        if (commandData instanceof Commands.SendQuote) {
             //Retrieve the output state of the transaction
             Quote output = tx.outputsOfType(Quote.class).get(0);
 
@@ -88,8 +88,8 @@ public class QuoteContract implements Contract {
 
     // Used to indicate the transaction's intent.
     public interface Commands extends CommandData {
-        class AskProposal implements Commands {}
-        class SendProposal implements Commands {}
+        class AskQuote implements Commands {}
+        class SendQuote implements Commands {}
         class RejectionIntention implements Commands {}
         class RejectionConfirmed implements Commands {}
     }

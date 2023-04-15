@@ -3,18 +3,24 @@ package com.example;
 import com.example.flows.AskQuoteFlow;
 import com.example.flows.SendQuoteFlow;
 import com.example.states.Quote;
+import net.corda.core.concurrent.CordaFuture;
+import net.corda.core.contracts.StateAndRef;
+import net.corda.core.contracts.TransactionState;
 import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.CordaX500Name;
 import net.corda.core.identity.Party;
+import net.corda.core.node.NetworkParameters;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.testing.node.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import java.util.Collections;
 import java.util.concurrent.Future;
 
 public class FlowTests {
@@ -22,25 +28,23 @@ public class FlowTests {
     private StartedMockNode a;
     private StartedMockNode b;
     private StartedMockNode c;
+
     @Before
     public void setup() {
-        MockNetworkParameters mockNetworkParameters = new MockNetworkParameters().withCordappsForAllNodes(
+        MockNetworkParameters mockNetworkParameters = new MockNetworkParameters(
                 Arrays.asList(
                         TestCordapp.findCordapp("com.example.contracts"),
                         TestCordapp.findCordapp("com.example.flows")
-                )
+                )).withNetworkParameters(new NetworkParameters(4, Collections.emptyList(),
+                        10485760, 10485760 * 50, Instant.now(), 1,
+                        Collections.emptyMap())
         ).withNotarySpecs(Arrays.asList(new MockNetworkNotarySpec(new CordaX500Name("Notary", "London", "GB"))));
         network = new MockNetwork(mockNetworkParameters);
-        a = network.createNode(new MockNodeParameters());
-        b = network.createNode(new MockNodeParameters());
-        c = network.createNode(new MockNodeParameters());
-        ArrayList<StartedMockNode> startedNodes = new ArrayList<>();
-        startedNodes.add(a);
-        startedNodes.add(b);
-        startedNodes.add(c);
-        startedNodes.forEach(el -> el.registerInitiatedFlow(AskQuoteFlow.AskQuoteFlowResponder.class));
-        startedNodes.forEach(el -> el.registerInitiatedFlow(SendQuoteFlow.SendQuoteFlowResponder.class));
+        a = network.createPartyNode(new CordaX500Name("Manufacturing Company", "London", "GB"));
+        b = network.createPartyNode(new CordaX500Name("Supplier", "Manchester", "GB"));
+        c = network.createPartyNode(new CordaX500Name("Bank", "London", "GB"));
         network.runNetwork();
+
     }
 
     @After
@@ -51,22 +55,34 @@ public class FlowTests {
     @Test
     public void AskQuoteCorrectDemandingOfQuote() throws Exception {
 
-        Party sender = a.getInfo().getLegalIdentitiesAndCerts().get(0).getParty();
-        Party receiver = b.getInfo().getLegalIdentitiesAndCerts().get(0).getParty();
-        AskQuoteFlow.AskQuoteFlowInitiator flow = new AskQuoteFlow.AskQuoteFlowInitiator(sender, receiver);
-
-        Future<SignedTransaction> future = a.startFlow(flow);
+        AskQuoteFlow.AskQuoteFlowInitiator flow = new AskQuoteFlow.AskQuoteFlowInitiator(-1, b.getInfo().getLegalIdentities().get(0));
+        CordaFuture<SignedTransaction> future=a.startFlow(flow);
         network.runNetwork();
-
-
-        SignedTransaction ptx = future.get();
-
-        // Print the transaction for debugging purposes.
-        System.out.println(ptx.getTx());
-        assert (ptx.getTx().getInputs().isEmpty());
+        SignedTransaction ptx= future.get();
+        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assert(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
         assert (ptx.getTx().getOutputs().get(0).getData() instanceof Quote);
         assert ( ((Quote) ptx.getTx().getOutputs().get(0).getData()).getQuote()==-1);
 
     }
+
+    @Test
+    public void SendQuoteCorrect() throws Exception {
+        //Errors in retrieving id from state in vault
+        AskQuoteFlow.AskQuoteFlowInitiator flow = new AskQuoteFlow.AskQuoteFlowInitiator(-1, b.getInfo().getLegalIdentities().get(0));
+        a.startFlow(flow);
+        network.runNetwork();
+        SendQuoteFlow.SendQuoteFlowInitiator f= new SendQuoteFlow.SendQuoteFlowInitiator(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),100);
+        CordaFuture<SignedTransaction> future=b.startFlow(f);
+        network.runNetwork();
+        SignedTransaction ptx= future.get();
+
+        assert(ptx.getTx().getOutputs().get(0).getData() instanceof Quote);
+        assert(!ptx.getInputs().isEmpty());
+        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().size()==2);
+
+    }
+
+
     
 }

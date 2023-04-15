@@ -31,28 +31,28 @@ public class SendQuoteFlow {
     public static class SendQuoteFlowInitiator extends FlowLogic<SignedTransaction>{
 
         //private variables
-        private final UniqueIdentifier quoteId;
-
+        private UniqueIdentifier quoteId;
+        private int quote;
         //public constructor
-        public SendQuoteFlowInitiator(UniqueIdentifier quoteId) {
+        public SendQuoteFlowInitiator(UniqueIdentifier quoteId, int quote) {
             this.quoteId = quoteId;
+            this.quote=quote;
         }
 
         @Override
         @Suspendable
         public SignedTransaction call() throws FlowException {
 
-            int quote = 1000;
             String message = "This is the best price I can offer.";
-            List<UUID> listOfLinearIds = new ArrayList<>();
-            listOfLinearIds.add(quoteId.getId());
-            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(null, listOfLinearIds);
+            List<UUID> listOfIds = new ArrayList<>();
+            listOfIds.add(quoteId.getId());
+            QueryCriteria queryCriteria = new QueryCriteria.LinearStateQueryCriteria(null, listOfIds);
             Vault.Page results = getServiceHub().getVaultService().queryBy(Quote.class, queryCriteria);
             StateAndRef inputStateAndRef = (StateAndRef) results.getStates().get(0);
             final Quote input = (Quote) inputStateAndRef.getState().getData();
             final Party sender= input.getReceiver().get(0);
             final Party receiver= input.getSender();
-            final Quote output = new Quote(quote,message,sender,Arrays.asList(receiver), false, false, false, false);
+            final Quote output = new Quote(input.getId(), quote,message,sender,Arrays.asList(receiver), false, false, false, false);
 
             Party notary = inputStateAndRef.getState().getNotary();
             // Step 3. Create a new TransactionBuilder object.
@@ -61,7 +61,7 @@ public class SendQuoteFlow {
             // Step 4. Add the iou as an output state, as well as a command to the transaction builder.
             builder.addInputState(inputStateAndRef);
             builder.addOutputState(output);
-            builder.addCommand(new QuoteContract.Commands.SendProposal(), Arrays.asList(sender.getOwningKey(),receiver.getOwningKey()) );
+            builder.addCommand(new QuoteContract.Commands.SendQuote(), Arrays.asList(sender.getOwningKey(),receiver.getOwningKey()) );
 
 
             // Step 5. Verify and sign it with our KeyPair.

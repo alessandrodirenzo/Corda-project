@@ -4,78 +4,76 @@ import co.paralleluniverse.fibers.Suspendable;
 import com.example.contracts.QuoteContract;
 import com.example.states.Quote;
 
+import net.corda.core.contracts.UniqueIdentifier;
+import net.corda.core.crypto.SecureHash;
 import net.corda.core.flows.*;
 
 import net.corda.core.identity.Party;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.core.transactions.TransactionBuilder;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static net.corda.core.contracts.ContractsDSL.requireThat;
+
 
 public class AskQuoteFlow {
 
     @InitiatingFlow
     @StartableByRPC
-    public static class AskQuoteFlowInitiator extends FlowLogic<SignedTransaction>{
+    public static class AskQuoteFlowInitiator extends FlowLogic<SignedTransaction> {
 
         //private variables
-        private Party sender ;
+        private int quote;
         private Party receiver;
 
         //public constructor
-        public AskQuoteFlowInitiator(Party sender, Party receiver ) {
-            this.sender = sender;
-            this.receiver=receiver;
+        public AskQuoteFlowInitiator(int quote, Party receiver) {
+            this.quote = quote;
+            this.receiver = receiver;
         }
 
         @Override
         @Suspendable
         public SignedTransaction call() throws FlowException {
 
-            int quote = -1;
-            String message= "I would be interested in purchasing raw materials from you. Can you send me the quote for 500 pieces?";
-            this.sender = getOurIdentity();
+
+            String message = "I would be interested in purchasing raw materials from you. Can you send me the quote for 500 pieces?";
+            Party sender = getOurIdentity();
 
             // Step 1. Get a reference to the notary service on our network and our key pair.
-            /** Explicit selection of notary by CordaX500Name - argument can by coded in flows or parsed from config (Preferred)*/
+
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
+            UniqueIdentifier id= new UniqueIdentifier();
 
             //Step 2. Final state
-            final Quote output = new Quote(quote,message,sender,Arrays.asList(receiver), false, false, false, false);
+            final Quote output = new Quote(id, quote, message, sender, Arrays.asList(receiver), false, false, false, false);
 
             // Step 3. Create a new TransactionBuilder object.
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
             // Step 4. Add the iou as an output state, as well as a command to the transaction builder.
             builder.addOutputState(output);
-            builder.addCommand(new QuoteContract.Commands.AskProposal(), Arrays.asList(this.sender.getOwningKey(),this.receiver.getOwningKey()) );
+            builder.addCommand(new QuoteContract.Commands.AskQuote(), Arrays.asList(sender.getOwningKey(), this.receiver.getOwningKey()));
 
 
             // Step 5. Verify and sign it with our KeyPair.
             builder.verify(getServiceHub());
             final SignedTransaction ptx = getServiceHub().signInitialTransaction(builder);
 
-
             // Step 6. Collect the other party's signature using the SignTransactionFlow.
-            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
-            otherParties.remove(getOurIdentity());
-            List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
-
-            SignedTransaction stx = subFlow(new CollectSignaturesFlow(ptx, sessions));
-
-            // Step 7. Assuming no exceptions, we can now finalise the transaction
-            return subFlow(new FinalityFlow(stx, sessions));
+            FlowSession otherPartySession = initiateFlow(receiver);
+            final SignedTransaction fullySignedTx = subFlow(
+                    new CollectSignaturesFlow(ptx, Arrays.asList(otherPartySession), CollectSignaturesFlow.Companion.tracker()));
+            return subFlow(new FinalityFlow(fullySignedTx, Arrays.asList(otherPartySession)));
         }
     }
 
     @InitiatedBy(AskQuoteFlowInitiator.class)
-    public static class AskQuoteFlowResponder extends FlowLogic<Void>{
+    public static class AskQuoteFlowResponder extends FlowLogic<Void> {
         //private variable
-        private FlowSession counterpartySession;
+        private final FlowSession counterpartySession;
 
         //Constructor
         public AskQuoteFlowResponder(FlowSession counterpartySession) {
@@ -85,16 +83,31 @@ public class AskQuoteFlow {
         @Suspendable
         @Override
         public Void call() throws FlowException {
-            SignedTransaction signedTransaction = subFlow(new SignTransactionFlow(counterpartySession) {
-                @Suspendable
-                @Override
-                protected void checkTransaction(SignedTransaction stx) throws FlowException {
+            class SignTxFlow extends SignTransactionFlow {
+                private SignTxFlow(FlowSession otherPartyFlow) {
+                    super(otherPartyFlow);
                 }
-            });
-            //Stored the transaction into data base.
-            subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+
+
+                @Override
+                protected void checkTransaction(@NotNull SignedTransaction stx) throws FlowException {
+                    requireThat(require -> {
+
+                        stx.getTx().getInputs().isEmpty();
+                        return null;
+                    });
+                }
+
+
+            }
+            final SignTxFlow signTxFlow = new SignTxFlow(counterpartySession);
+            final SecureHash txId = subFlow(signTxFlow).getId();
+
+            subFlow(new ReceiveFinalityFlow(counterpartySession, txId));
             return null;
         }
-        }
     }
+}
+
+
 

@@ -2,10 +2,13 @@ package com.example.states;
 
 import com.example.contracts.QuoteContract;
 import net.corda.core.contracts.BelongsToContract;
+
 import net.corda.core.contracts.ContractState;
+import net.corda.core.contracts.LinearState;
+import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.AbstractParty;
-import net.corda.core.identity.AnonymousParty;
 import net.corda.core.identity.Party;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,10 +17,11 @@ import java.util.List;
 // * State *
 // *********
 @BelongsToContract(QuoteContract.class)
-public class Quote implements ContractState {
+public class Quote implements ContractState{
 
 
     //private variables
+    private final UniqueIdentifier id;
     private String message;
     private int quote;
     private Party sender;
@@ -31,7 +35,8 @@ public class Quote implements ContractState {
 
     /* Constructor of your Corda state */
 
-    public Quote(int quote, String message, Party sender, List<Party> receiver, boolean second_category, boolean first_category, boolean accepted, boolean rejected) {
+    public Quote(UniqueIdentifier id, int quote, String message, Party sender, List<Party> receiver, boolean second_category, boolean first_category, boolean accepted, boolean rejected) {
+        this.id = id;
         this.message=message;
         this.quote = quote;
         this.sender = sender;
@@ -83,5 +88,24 @@ public class Quote implements ContractState {
         entities.add(sender);
         entities.addAll(receiver);
         return entities;
+    }
+
+    @Override
+    public String toString() {
+        return "Quote{" +
+                "linearId=" + id +
+                ", message='" + message + '\'' +
+                ", quote=" + quote +
+                ", sender=" + sender +
+                ", receiver=" + receiver +
+                ", second_category=" + second_category +
+                ", first_category=" + first_category +
+                ", accepted=" + accepted +
+                ", rejected=" + rejected +
+                '}';
+    }
+
+    public UniqueIdentifier getId() {
+        return null;
     }
 }
