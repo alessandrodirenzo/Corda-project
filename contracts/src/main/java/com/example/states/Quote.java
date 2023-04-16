@@ -106,6 +106,6 @@ public class Quote implements ContractState{
     }
 
     public UniqueIdentifier getId() {
-        return null;
+        return this.id;
     }
 }

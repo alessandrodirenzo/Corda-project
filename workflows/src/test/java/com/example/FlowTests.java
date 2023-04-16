@@ -23,6 +23,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.Future;
 
+import static org.junit.Assert.assertEquals;
+
+
 public class FlowTests {
     private MockNetwork network;
     private StartedMockNode a;
@@ -59,28 +62,34 @@ public class FlowTests {
         CordaFuture<SignedTransaction> future=a.startFlow(flow);
         network.runNetwork();
         SignedTransaction ptx= future.get();
-        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
-        assert(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
         assert (ptx.getTx().getOutputs().get(0).getData() instanceof Quote);
         assert ( ((Quote) ptx.getTx().getOutputs().get(0).getData()).getQuote()==-1);
+        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assert(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote(),-1);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote(),b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote());
+        assertEquals(c.getServices().getVaultService().queryBy(Quote.class).getStates().size(),0);
 
     }
 
     @Test
     public void SendQuoteCorrect() throws Exception {
-        //Errors in retrieving id from state in vault
+      
         AskQuoteFlow.AskQuoteFlowInitiator flow = new AskQuoteFlow.AskQuoteFlowInitiator(-1, b.getInfo().getLegalIdentities().get(0));
         a.startFlow(flow);
         network.runNetwork();
-        SendQuoteFlow.SendQuoteFlowInitiator f= new SendQuoteFlow.SendQuoteFlowInitiator(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),100);
+        UniqueIdentifier id= a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId();
+        SendQuoteFlow.SendQuoteFlowInitiator f= new SendQuoteFlow.SendQuoteFlowInitiator(id,100);
         CordaFuture<SignedTransaction> future=b.startFlow(f);
         network.runNetwork();
         SignedTransaction ptx= future.get();
 
         assert(ptx.getTx().getOutputs().get(0).getData() instanceof Quote);
         assert(!ptx.getInputs().isEmpty());
-        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().size()==2);
-
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote(),100);
+        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote(),100);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(), id);
+        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(), id);
     }
 
 
