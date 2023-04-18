@@ -105,7 +105,7 @@ public class ContractTests {
             return null;
         });
     }
-    
+
     @Test
     public void RejectionConfirmedTest(){
         transaction(ledgerServices, tx -> {

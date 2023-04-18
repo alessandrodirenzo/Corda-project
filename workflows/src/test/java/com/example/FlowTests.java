@@ -1,6 +1,7 @@
 package com.example;
 
 import com.example.flows.AskQuoteFlow;
+import com.example.flows.RejectionConfirmedFlow;
 import com.example.flows.RejectionIntentionFlow;
 import com.example.flows.SendQuoteFlow;
 import com.example.states.Quote;
@@ -55,7 +56,7 @@ public class FlowTests {
     public void tearDown() {
         network.stopNodes();
     }
-
+  
     @Test
     public void AskQuoteCorrectDemandingOfQuote() throws Exception {
 
@@ -118,5 +119,38 @@ public class FlowTests {
         assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isSecond_category(),true);
         assertEquals(c.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isSecond_category(),true);
     }
-    
+
+    @Test
+    public void RejectionConfirmedCorrectExecution() throws Exception {
+
+        AskQuoteFlow.AskQuoteFlowInitiator flow1 = new AskQuoteFlow.AskQuoteFlowInitiator(-1, b.getInfo().getLegalIdentities().get(0));
+        a.startFlow(flow1);
+        network.runNetwork();
+
+        SendQuoteFlow.SendQuoteFlowInitiator flow2= new SendQuoteFlow.SendQuoteFlowInitiator(100,a.getInfo().getLegalIdentities().get(0));
+        b.startFlow(flow2);
+        network.runNetwork();
+
+        RejectionIntentionFlow.RejectionIntentionFlowInitiator flow3= new RejectionIntentionFlow.RejectionIntentionFlowInitiator(c.getInfo().getLegalIdentities().get(0));
+        a.startFlow(flow3);
+        network.runNetwork();
+
+        RejectionConfirmedFlow.RejectionConfirmedFlowInitiator flow4= new RejectionConfirmedFlow.RejectionConfirmedFlowInitiator(b.getInfo().getLegalIdentities().get(0));
+        CordaFuture<SignedTransaction> future=a.startFlow(flow4);
+        network.runNetwork();
+        SignedTransaction ptx= future.get();
+
+        assert(ptx.getTx().getOutputs().get(0).getData() instanceof Quote);
+        assert(!ptx.getInputs().isEmpty());
+        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assert(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId()); ;
+        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId()); ;
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isRejected(),true);
+        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isRejected(),true);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isSecond_category(),true);
+        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isSecond_category(),true);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isFirst_category(),true);
+        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isFirst_category(),true);
+    }
 }
