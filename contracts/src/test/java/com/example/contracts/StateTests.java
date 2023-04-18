@@ -1,11 +1,8 @@
 package com.example.contracts;
 
 import com.example.states.Quote;
-import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 import org.junit.Test;
-
-import java.lang.reflect.Array;
 import java.util.List;
 
 
