@@ -18,24 +18,65 @@ public class ContractTests {
     private final TestIdentity compA= new TestIdentity(new CordaX500Name("Company A",  "London",  "GB"));
     private final TestIdentity compB = new TestIdentity(new CordaX500Name("Company B",  "Rome",  "IT"));
     private final TestIdentity compC = new TestIdentity(new CordaX500Name("Company C",  "Berlin",  "DE"));
-    private Quote state = new Quote(new UniqueIdentifier(), -1,"", compA.getParty(), Arrays.asList(compB.getParty(), compC.getParty()), false, false, false, false);
+    private Quote state1 = new Quote(new UniqueIdentifier(), -1,"", compA.getParty(), Arrays.asList(compB.getParty()), false, false, false, false);
+    private Quote state2 = new Quote(new UniqueIdentifier(), 300,"", compB.getParty(), Arrays.asList(compA.getParty()), false, false, false, false);
+    private Quote state3 = new Quote(new UniqueIdentifier(), 300,"", compA.getParty(), Arrays.asList(compB.getParty()), false, false, false, false);
+    private Quote state4 = new Quote(new UniqueIdentifier(), 300,"", compA.getParty(), Arrays.asList(compC.getParty()), true, false, false, true);
+    private Quote state5 = new Quote(new UniqueIdentifier(), 300,"", compB.getParty(), Arrays.asList(compC.getParty()), true, false, false, true);
 
     @Test
-    public void InputandOutputState() {
+    public void AskQuoteCommandTest() {
         transaction(ledgerServices, tx -> {
-            tx.input(QuoteContract.ID, state);
-            tx.output(QuoteContract.ID, state);
-            tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey(), compC.getPublicKey()), new QuoteContract.Commands.AskQuote());
+            tx.input(QuoteContract.ID, state1);
+            tx.output(QuoteContract.ID, state1);
+            tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey()), new QuoteContract.Commands.AskQuote());
             tx.fails(); //fails because of having inputs
             return null;
         });
+
+
         transaction(ledgerServices, tx ->  {
-                tx.output(QuoteContract.ID, state);
-                tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey(), compC.getPublicKey()), new QuoteContract.Commands.AskQuote());
+                tx.output(QuoteContract.ID, state1);
+                tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey()), new QuoteContract.Commands.AskQuote());
                 tx.verifies();
                 return null;
             });
+    }
 
+    @Test
+    public void SendQuoteTest(){
+        transaction(ledgerServices, tx -> {
+            tx.input(QuoteContract.ID, state1);
+            tx.output(QuoteContract.ID, state2);
+            tx.command(Arrays.asList(compB.getPublicKey(), compA.getPublicKey()), new QuoteContract.Commands.SendQuote());
+            tx.verifies();
+            return null;
+        });
 
+        transaction(ledgerServices, tx ->  {
+            tx.input(QuoteContract.ID, state1);
+            tx.output(QuoteContract.ID, state3);
+            tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey()), new QuoteContract.Commands.SendQuote());
+            tx.fails();
+            return null;
+        });
+    }
+    @Test
+    public void RejectionIntentionTest(){
+        transaction(ledgerServices, tx -> {
+            tx.input(QuoteContract.ID, state2);
+            tx.output(QuoteContract.ID, state4);
+            tx.command(Arrays.asList(compA.getPublicKey(), compC.getPublicKey()), new QuoteContract.Commands.RejectionIntention());
+            tx.verifies();
+            return null;
+        });
+
+        transaction(ledgerServices, tx -> {
+            tx.input(QuoteContract.ID, state2);
+            tx.output(QuoteContract.ID, state5);
+            tx.command(Arrays.asList(compB.getPublicKey(), compC.getPublicKey()), new QuoteContract.Commands.RejectionIntention());
+            tx.fails();
+            return null;
+        });
     }
 }

@@ -6,9 +6,9 @@ import com.example.states.Quote;
 import net.corda.core.contracts.AttachmentResolutionException;
 import net.corda.core.contracts.StateAndRef;
 import net.corda.core.contracts.TransactionResolutionException;
-import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.crypto.SecureHash;
 import net.corda.core.flows.*;
+import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 import net.corda.core.node.services.Vault;
 import net.corda.core.node.services.vault.QueryCriteria;
@@ -21,24 +21,18 @@ import java.security.SignatureException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static net.corda.core.contracts.ContractsDSL.requireThat;
 
-
-public class SendQuoteFlow {
+public class RejectionIntentionFlow {
 
     @InitiatingFlow
     @StartableByRPC
-    public static class SendQuoteFlowInitiator extends FlowLogic<SignedTransaction>{
-
+    public static class RejectionIntentionFlowInitiator extends FlowLogic<SignedTransaction>{
         //private variables
-        private int quote;
         private Party receiver;
         //public constructor
-        public SendQuoteFlowInitiator( int quote, Party receiver) {
-            this.quote=quote;
+        public RejectionIntentionFlowInitiator( Party receiver) {
             this.receiver=receiver;
         }
 
@@ -46,13 +40,14 @@ public class SendQuoteFlow {
         @Suspendable
         public SignedTransaction call() throws FlowException {
 
-            String message = "This is the best price I can offer.";
+            String message = "I have the intention to reject the proposal due to the expensive cipher and I ask for your approval.";
+            final Party sender= getOurIdentity();
             QueryCriteria queryCriteria = new QueryCriteria.VaultQueryCriteria(Vault.StateStatus.UNCONSUMED);
             Vault.Page results = getServiceHub().getVaultService().queryBy(Quote.class, queryCriteria);
             StateAndRef inputStateAndRef= (StateAndRef) results.getStates().get(0);
             final Quote input = (Quote) inputStateAndRef.getState().getData();
-            final Party sender= getOurIdentity();
-            final Quote output = new Quote(input.getId(), quote,message,sender,Arrays.asList(receiver), false, false, false, false);
+            final Party otherreceiver= ((Quote) inputStateAndRef.getState().getData()).getSender();
+            final Quote output = new Quote(input.getId(), input.getQuote(),message,sender,Arrays.asList(receiver), true, false, false, true);
             Party notary = inputStateAndRef.getState().getNotary();
             // Step 3. Create a new TransactionBuilder object.
             final TransactionBuilder builder = new TransactionBuilder(notary);
@@ -60,30 +55,38 @@ public class SendQuoteFlow {
             // Step 4. Add inputState, outputState and Command.
             builder.addInputState(inputStateAndRef);
             builder.addOutputState(output);
-            builder.addCommand(new QuoteContract.Commands.SendQuote(), Arrays.asList(sender.getOwningKey(),receiver.getOwningKey()) );
+            builder.addCommand(new QuoteContract.Commands.RejectionIntention(), Arrays.asList(sender.getOwningKey(),receiver.getOwningKey()) );
 
 
             // Step 5. Verify and sign it.
             builder.verify(getServiceHub());
             final SignedTransaction ptx = getServiceHub().signInitialTransaction(builder);
 
-
             // Step 6. Collect the other party's signature using the SignTransactionFlow.
-            FlowSession otherPartySession = initiateFlow(receiver);
+            ArrayList<AbstractParty> parties= new ArrayList<>();
+            parties= (ArrayList) output.getParticipants();
+
+            List<FlowSession> signerFlows = parties.stream()
+                    // We don't need to inform ourselves and we signed already.
+                    .filter(it -> !it.equals(getOurIdentity()))
+                    .map(this::initiateFlow)
+                    .collect(Collectors.toList());
+            FlowSession extra=initiateFlow(otherreceiver);
+
             final SignedTransaction fullySignedTx = subFlow(
-                    new CollectSignaturesFlow(ptx, Arrays.asList(otherPartySession), CollectSignaturesFlow.Companion.tracker()));
-            return subFlow(new FinalityFlow(fullySignedTx, Arrays.asList(otherPartySession)));
+                    new CollectSignaturesFlow(ptx, signerFlows, CollectSignaturesFlow.Companion.tracker()));
+            signerFlows.add(extra);
+            return subFlow(new FinalityFlow(fullySignedTx, signerFlows));
 
         }
     }
-
-    @InitiatedBy(SendQuoteFlowInitiator.class)
-    public static class SendQuoteFlowResponder extends FlowLogic<Void>{
+    @InitiatedBy(RejectionIntentionFlow.RejectionIntentionFlowInitiator.class)
+    public static class RejectionIntentionFlowResponder extends FlowLogic<Void>{
         //private variable
         private FlowSession counterpartySession;
 
         //Constructor
-        public SendQuoteFlowResponder(FlowSession counterpartySession) {
+        public RejectionIntentionFlowResponder(FlowSession counterpartySession) {
             this.counterpartySession = counterpartySession;
         }
 
@@ -103,8 +106,12 @@ public class SendQuoteFlow {
                     try {
                         LedgerTransaction ledgerTx = stx.toLedgerTransaction(getServiceHub(), false);
                         Party rec_of_prev_transaction= ledgerTx.inputsOfType(Quote.class).get(0).getReceiver().get(0);
-                        if(!rec_of_prev_transaction.equals(outputState.getSender())){
-                            throw new FlowException("Only the supplier can make a proposal of quote");
+                        Party send_of_prev_transaction= ledgerTx.inputsOfType(Quote.class).get(0).getSender();
+                        if(outputState.getSender().getName().equals("O=Supplier,L=Manchester,C=GB")){
+                            throw new FlowException("You are not the Manufacturing Company");
+                        }
+                        if(rec_of_prev_transaction.equals(outputState.getReceiver()) || send_of_prev_transaction.equals(outputState.getReceiver())){
+                            throw new FlowException("I'm not receiver of second category");
                         }
                     } catch (SignatureException e) {
                         e.printStackTrace();
@@ -126,5 +133,3 @@ public class SendQuoteFlow {
         }
     }
 }
-
-

@@ -1,6 +1,7 @@
 package com.example;
 
 import com.example.flows.AskQuoteFlow;
+import com.example.flows.RejectionIntentionFlow;
 import com.example.flows.SendQuoteFlow;
 import com.example.states.Quote;
 import net.corda.core.concurrent.CordaFuture;
@@ -78,8 +79,8 @@ public class FlowTests {
         AskQuoteFlow.AskQuoteFlowInitiator flow = new AskQuoteFlow.AskQuoteFlowInitiator(-1, b.getInfo().getLegalIdentities().get(0));
         a.startFlow(flow);
         network.runNetwork();
-        UniqueIdentifier id= a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId();
-        SendQuoteFlow.SendQuoteFlowInitiator f= new SendQuoteFlow.SendQuoteFlowInitiator(id,100);
+
+        SendQuoteFlow.SendQuoteFlowInitiator f= new SendQuoteFlow.SendQuoteFlowInitiator(100,a.getInfo().getLegalIdentities().get(0));
         CordaFuture<SignedTransaction> future=b.startFlow(f);
         network.runNetwork();
         SignedTransaction ptx= future.get();
@@ -88,10 +89,34 @@ public class FlowTests {
         assert(!ptx.getInputs().isEmpty());
         assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote(),100);
         assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getQuote(),100);
-        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(), id);
-        assertEquals(b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(), id);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId()); ;
     }
 
+    @Test
+    public void RejectionIntentionCorrectInvolvedParties() throws Exception {
 
+        AskQuoteFlow.AskQuoteFlowInitiator flow1 = new AskQuoteFlow.AskQuoteFlowInitiator(-1, b.getInfo().getLegalIdentities().get(0));
+        a.startFlow(flow1);
+        network.runNetwork();
+
+        SendQuoteFlow.SendQuoteFlowInitiator flow2= new SendQuoteFlow.SendQuoteFlowInitiator(100,a.getInfo().getLegalIdentities().get(0));
+        b.startFlow(flow2);
+        network.runNetwork();
+
+        RejectionIntentionFlow.RejectionIntentionFlowInitiator flow3= new RejectionIntentionFlow.RejectionIntentionFlowInitiator(c.getInfo().getLegalIdentities().get(0));
+        CordaFuture<SignedTransaction> future=a.startFlow(flow3);
+        network.runNetwork();
+        SignedTransaction ptx= future.get();
+        assert(ptx.getTx().getOutputs().get(0).getData() instanceof Quote);
+        assert(!ptx.getInputs().isEmpty());
+        assert(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assert(c.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData() instanceof Quote);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId()); ;
+        assertEquals(c.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId(),b.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().getId()); ;
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isRejected(),true);
+        assertEquals(c.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isRejected(),true);
+        assertEquals(a.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isSecond_category(),true);
+        assertEquals(c.getServices().getVaultService().queryBy(Quote.class).getStates().get(0).getState().getData().isSecond_category(),true);
+    }
     
 }

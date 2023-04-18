@@ -38,21 +38,23 @@ public class QuoteContract implements Contract {
             });
         }
         if (commandData instanceof Commands.SendQuote) {
-            //Retrieve the output state of the transaction
+            //Retrieve the input and output state of the transaction
+            Quote input= tx.inputsOfType(Quote.class).get(0);
             Quote output = tx.outputsOfType(Quote.class).get(0);
 
             //Using Corda DSL function requireThat to replicate conditions-checks
             requireThat(require -> {
-                require.using("Input state present", !tx.getInputStates().isEmpty());
+                require.using("Input state present", input!=null);
                 require.using("Quote with positive value",output.getQuote()>0);
                 require.using("No decision made", (!output.isAccepted()) && (!output.isRejected()));
                 require.using("No approval of decision", (!output.isFirst_category()) && (!output.isSecond_category()));
+                require.using("Only the supplier can send the quote", output.getSender().equals(input.getReceiver().get(0)));
                 return null;
             });
         }
 
         if (commandData instanceof Commands.RejectionIntention) {
-            //Retrieve the output state of the transaction
+            //Retrieve the input and output state of the transaction
             Quote input= tx.inputsOfType(Quote.class).get(0);
             Quote output = tx.outputsOfType(Quote.class).get(0);
 
@@ -62,13 +64,15 @@ public class QuoteContract implements Contract {
                 require.using("Input quote without decisions", (!input.isAccepted()) && (!input.isRejected()));
                 require.using("Input quote without approval of validators", (!input.isFirst_category()) && (!input.isSecond_category()));
                 require.using("Quote didn't change", output.getQuote()==input.getQuote());
+                require.using("Positive quote", output.getQuote()>0);
                 require.using("Intention of rejection", !output.isAccepted()&&output.isRejected());
                 require.using("Only validators of second category required to approve", output.isSecond_category()&&!output.isFirst_category());
+                require.using("Only the Manufacturing Company can reject or approve the quote", !output.getSender().equals(input.getSender()));
                 return null;
             });
         }
         if (commandData instanceof Commands.RejectionConfirmed) {
-            //Retrieve the output state of the transaction
+            //Retrieve the input and output state of the transaction
             Quote input= tx.inputsOfType(Quote.class).get(0);
             Quote output = tx.outputsOfType(Quote.class).get(0);
 
