@@ -84,6 +84,8 @@ public class QuoteContract implements Contract {
                 require.using("Quote didn't change", output.getQuote()==input.getQuote());
                 require.using("Rejection confirmed", output.isAccepted()==input.isAccepted() && output.isRejected()==input.isRejected());
                 require.using("Validators of first category required to approve", output.isFirst_category());
+                require.using("Only the Manufacturing Company can reject or approve the quote", input.getSender().equals(output.getSender()));
+                require.using("Wrong receiver",!input.getReceiver().get(0).equals(output.getReceiver().get(0)));
                 return null;
             });
         }
