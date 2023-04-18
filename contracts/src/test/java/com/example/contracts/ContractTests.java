@@ -43,15 +43,13 @@ public class ContractTests {
             tx.fails();
             return null;
         });
-        
+
         transaction(ledgerServices, tx ->  {
                 tx.output(QuoteContract.ID, state1);
                 tx.command(Arrays.asList(compA.getPublicKey(), compB.getPublicKey()), new QuoteContract.Commands.AskQuote());
                 tx.verifies();
                 return null;
             });
-
-
     }
 
     @Test
@@ -72,6 +70,7 @@ public class ContractTests {
             return null;
         });
     }
+
     @Test
     public void RejectionIntentionTest(){
         transaction(ledgerServices, tx -> {
@@ -106,6 +105,7 @@ public class ContractTests {
             return null;
         });
     }
+    
     @Test
     public void RejectionConfirmedTest(){
         transaction(ledgerServices, tx -> {
