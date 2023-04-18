@@ -6,25 +6,16 @@ import com.example.flows.RejectionIntentionFlow;
 import com.example.flows.SendQuoteFlow;
 import com.example.states.Quote;
 import net.corda.core.concurrent.CordaFuture;
-import net.corda.core.contracts.StateAndRef;
-import net.corda.core.contracts.TransactionState;
-import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.identity.CordaX500Name;
-import net.corda.core.identity.Party;
 import net.corda.core.node.NetworkParameters;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.testing.node.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
-
 import java.util.Collections;
-import java.util.concurrent.Future;
-
 import static org.junit.Assert.assertEquals;
 
 
@@ -56,7 +47,7 @@ public class FlowTests {
     public void tearDown() {
         network.stopNodes();
     }
-  
+
     @Test
     public void AskQuoteCorrectDemandingOfQuote() throws Exception {
 
